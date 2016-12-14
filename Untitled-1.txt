@@ -1,0 +1,4 @@
+update(data,func success){
+    err,success =  prose(data);
+    success(err,success);
+}
