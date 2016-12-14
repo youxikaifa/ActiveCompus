@@ -436,8 +436,9 @@ router.sendlabel = function (req, res) {
         });
     }
 
+    console.log("data" + fields);
 
-    var userIds = fields.userId, heads = fields.head, sexs = fields.sex,
+    var heads = fields.head, userIds = fields.userId, sexs = fields.sex,
       names = fields.name, titles = fields.title, contents = fields.content,
       types = fields.type, tags = fields.tags
 
