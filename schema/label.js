@@ -2,7 +2,6 @@ var mongoose = require("mongoose");
 
 var Schema = mongoose.Schema;
 var label = new Schema({
-    id: String,
     userId: String,
     head: String,
     sex:Number,

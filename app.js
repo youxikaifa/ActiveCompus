@@ -54,7 +54,14 @@ app.post('/v1/upload',router.sendlabel)
 // app.post('/v1/post', multiparty({ uploadDir: './public/images/headIcon' }), router.register);
 // app.use(multiparty({uploadDir:'./public/images/upload' }));//设置上传文件存放的地址。
 
-app.post('/v1/findlost',router.sendlost)
+app.post('/v1/findlost', router.sendlost)
+
+app.get('/v1/getAutoDyne', router.getAutoDyne)
+app.get('/v1/getAutoComments', router.getAutoComments)
+app.post('/v1/commitAutoComment', router.commitAutoComment)
+app.get('/v1/clickAutoLike', router.clickAutoLike)
+app.get('/v1/joinScans', router.joinScans)
+app.post('/v1/pubAutoDyne',router.pubAutoDyne)
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
