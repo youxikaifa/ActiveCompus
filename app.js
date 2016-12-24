@@ -61,7 +61,11 @@ app.get('/v1/getAutoComments', router.getAutoComments)
 app.post('/v1/commitAutoComment', router.commitAutoComment)
 app.get('/v1/clickAutoLike', router.clickAutoLike)
 app.get('/v1/joinScans', router.joinScans)
-app.post('/v1/pubAutoDyne',router.pubAutoDyne)
+app.post('/v1/pubAutoDyne', router.pubAutoDyne)
+app.get('/v1/getFeels', router.getFeels)
+app.post('/v1/pubFeeling', router.pubFeeling)
+app.get('/v1/clickFeelLike', router.clickFeelLike)
+app.get('/v1/getLabels',router.getLabels)
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

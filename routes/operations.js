@@ -5,6 +5,7 @@ var label = require('../schema/label.js')
 var lost = require('../schema/lost.js')
 var user = require('../schema/user.js')
 var autodyne = require('../schema/autodyne.js')
+var feeling = require('../schema/feeling.js')
 
 var string2Array = require('../module/func.js')
 
@@ -29,6 +30,7 @@ var rack = hat.rack()
 // 参数2：数据格式
 var Label = mongoose.model("Label", label);
 var Lost = mongoose.model("Lost", lost);
+var Feeling = mongoose.model("Feeling", feeling);
 var AutoDyne = mongoose.model("AutoDyne", autodyne);
 
 router.connect = function (req, res) {
@@ -294,7 +296,7 @@ router.search = function (req, res) {
   var key = req.query.key;
   console.log("key" + key)
   var back = [];
-  Label.find({ title: new RegExp("^.*" + key + ".*$") }, function (err, docs) {
+  Label.find({ content: new RegExp("^.*" + key + ".*$") }, function (err, docs) {
     if (err) {
       console.log(err.getMessage)
     } else {
@@ -311,7 +313,7 @@ router.getlost = function (req, res) {
     } else {
       res.send(docs);
     }
-  }).skip(10 * pageSize).limit(10);
+  }).skip(10 * pageSize).sort({ "time": -1 }).limit(10);
 }
 
 router.searchlost = function (req, res) {
@@ -438,7 +440,8 @@ router.pubAutoDyne = function (req, res) {
     }
 
     var heads = fields.head,
-      titles = fields.title, names = fields.name,types = fields.type,userIds = fields.userId
+      titles = fields.title, names = fields.name, types = fields.type, userIds = fields.userId
+      schools = fields.school,mottos = fields.motto
 
 
     var _auto = {
@@ -450,11 +453,86 @@ router.pubAutoDyne = function (req, res) {
       type: parseInt(types[0]),
       userId: userIds[0],
       scans: 0,
-      likes: [],
-      comments:0
+      likes: new Array(),
+      comments: 0,
+      school: schools[0],
+      motto:mottos[0]
     }
 
     autoColl.insert(_auto, function (err) {
+      if (err) {
+        console.log('发表失败')
+      } else {
+        console.log('发表成功')
+      }
+    })
+
+    res.writeHead(200, { 'content-type': 'text/plain;charset=utf-8' });
+    res.write('received upload:\n\n');
+    res.end(util.inspect({ fields: fields, files: filesTmp }));
+  });
+}
+
+router.pubFeeling = function (req, res) {
+  var autoColl = db.get("feelings")
+  //生成multiparty对象，并配置上传目标路径
+  var form = new multiparty.Form({ uploadDir: './public/images/upload/' });
+  //上传完成后处理
+  form.parse(req, function (err, fields, files) {
+    var filesTmp = JSON.stringify(files, null, 2);
+
+    if (err) {
+      console.log('parse error: ' + err);
+    } else if (files.images != null) {
+      console.log('parse files: ' + filesTmp);
+      var size = files.images.length;
+      var uris = [], urls = []
+
+      for (var i = 0; i < size; i++) {
+        var inputFile = files.images[i];
+        var path = inputFile.path;
+        var urlPath = '/images/autothumb/' + path.substring(21);
+        uris.push(path);
+        urls.push(urlPath);
+      }
+
+      imagemin(uris, 'public/images/autothumb', {
+        plugins: [
+          imageminMozjpeg(),
+          imageminPngquant({ quality: '30-40' })
+        ]
+      }).then(
+        (files) => {
+          //=> [{data: <Buffer 89 50 4e …>, path: 'build/images/foo.jpg'}, …]
+          console.log('>>>>>>>>>>>>>succ' + files);
+        }
+
+        ).catch((error) => {
+          console.log('>>>>>>>>>>fail' + error);
+        });
+    }
+
+    var heads = fields.head,
+      contents = fields.content, names = fields.name, types = fields.type, userIds = fields.userId,
+      sexs = fields.sex,mottos = fields.motto, schools = fields.school
+
+
+    var _feel = {
+      pics: urls,
+      head: heads[0],
+      content: contents[0],
+      name: names[0],
+      time: new Date().getTime().toString(),
+      type: parseInt(types[0]),
+      userId: userIds[0],
+      sex: parseInt(sexs[0]),
+      likes: new Array(),
+      comments: 0,
+      motto: mottos[0],
+      school:schools[0]
+    }
+
+    autoColl.insert(_feel, function (err) {
       if (err) {
         console.log('发表失败')
       } else {
@@ -511,7 +589,7 @@ router.sendlabel = function (req, res) {
 
     var heads = fields.head, userIds = fields.userId, sexs = fields.sex,
       names = fields.name, titles = fields.title, contents = fields.content,
-      types = fields.type, tags = fields.tags
+      types = fields.type, tags = fields.tags,schools = fields.school, mottos = fields.motto
 
     var tagstr = tags[0];
     var tag;
@@ -526,14 +604,15 @@ router.sendlabel = function (req, res) {
       head: heads[0],
       sex: parseInt(sexs[0]),
       name: names[0],
-      title: titles[0],
       content: contents[0],
       pubTime: new Date().getTime().toString(),
       type: 0,
       tags: tag,
       followers: [],
       likes: [],
-      picUrls: urls
+      picUrls: urls,
+      school: schools[0],
+      motto:mottos[0]
     }
 
     labelColl.insert(_label, function (err) {
@@ -560,7 +639,44 @@ router.getAutoDyne = function (req, res) {
     } else {
       res.send(docs)
     }
-  }).sort({ "create":-1}).skip(8*page).limit(8);
+  }).sort({ "time": -1 }).skip(8 * page).limit(8);
+}
+
+router.getLabels = function (req, res) {
+  var page = req.query.page;
+  var type = req.query.type;
+  var autoDyneColl = db.get("labels");
+  Label.find({}, function (err, docs) {
+    if (err) {
+      console.log(err)
+    } else {
+      res.send(docs)
+    }
+  }).sort({ "pubTime": -1 }).skip(8 * page).limit(8);
+}
+
+router.getFeels = function (req, res) {
+  var page = req.query.page;
+  var school = req.query.school;
+  var feelsColl = db.get("feelings");
+  if (school == 'all') {
+    Feeling.find({} , function (err, docs) {
+      if (err) {
+        console.log(err)
+      } else {
+        res.send(docs)
+      }
+    }).sort({ "time": -1 }).skip(8 * page).limit(8);
+  } else {
+    Feeling.find({ "school": school }, function (err, docs) {
+      if (err) {
+        console.log(err)
+      } else {
+        res.send(docs)
+      }
+    }).sort({ "time": -1 }).skip(8 * page).limit(8);
+  }
+
 }
 
 router.getAutoComments = function (req, res) {
@@ -576,9 +692,9 @@ router.getAutoComments = function (req, res) {
 }
 
 router.commitAutoComment = function (req, res) {
-  console.log("body", req.body.target_user)
   var auto_id = req.body.autoid;
   var comColl = db.get("autocomments");
+  var feelColl = db.get("feelings");
   var fromUser, targetUser, repid, autoid, type, content
   var comment = {
     "created": new Date().getTime().toString(),
@@ -599,7 +715,14 @@ router.commitAutoComment = function (req, res) {
         if (err) {
           console.log(err)
         } else {
-          res.send(docs)
+          
+          feelColl.update({ "_id": auto_id }, { $inc: { comments: 1 } }, function (err, feels) {
+            if (err) {
+              console.log(err)
+            } else {
+              res.send(docs)
+            }
+          })
         }
       })
     }
@@ -612,13 +735,11 @@ router.clickAutoLike = function (req, res) {
   var user_id = req.query.user_id;
 
   var likes = [];
-  var scans;
   autoColl.find({ "_id": auto_id }, function (err, docs) {
     if (err) {
       console.log(err.getMessage())
     } else {
       likes = docs[0].likes;
-      scans = docs[0].scans;
       var position = likes.indexOf(user_id)
       if (position != -1) {
         autoColl.update({ "_id": auto_id }, { $pull: { "likes": user_id } }, function (err, raw) {
@@ -635,7 +756,7 @@ router.clickAutoLike = function (req, res) {
           }
         })
       } else {
-        autoColl.update({ "_id": auto_id }, { $push: { "likes": user_id }, $set: { "scans": scans + 1 } }, function (err, raw) {
+        autoColl.update({ "_id": auto_id }, { $push: { "likes": user_id }, $inc: { scans: 1 } }, function (err, raw) {
           if (err) {
             console.log(err)
           } else {
@@ -654,25 +775,63 @@ router.clickAutoLike = function (req, res) {
 
 }
 
-router.joinScans = function (req, res) {
-  var autoColl = db.get("autodynes");
-  var auto_id = req.query.auto_id;
-  var scans;
-  autoColl.find({ "_id": auto_id }, function (err, docs) {
+
+router.clickFeelLike = function (req, res) {
+  var feelColl = db.get("feelings");
+  var feel_id = req.query.feel_id;
+  var thumb = req.query.thumb;
+
+  var likes = [];
+  feelColl.find({ "_id": feel_id }, function (err, docs) {
     if (err) {
       console.log(err.getMessage())
     } else {
-      scans = docs[0].scans;
-      autoColl.update({ "_id": auto_id }, { $set: { "scans": scans + 1 } }, function (err, raw) {
-        if (err) {
-          console.log(err.getMessage())
-        } else {
-          res.send("succ")
-        }
-      })
+      likes = docs[0].likes;
+      var position = likes.indexOf(thumb)
+      if (position != -1) {
+        feelColl.update({ "_id": feel_id }, { $pull: { "likes": thumb } }, function (err, raw) {
+          if (err) {
+            console.log(err)
+          } else {
+            feelColl.find({ "_id": feel_id }, function (err, docs) {
+              if (err) {
+                console.log(err)
+              } else {
+                res.send(docs[0])
+              }
+            })
+          }
+        })
+      } else {
+        feelColl.update({ "_id": feel_id }, { $push: { "likes": thumb } }, function (err, raw) {
+          if (err) {
+            console.log(err)
+          } else {
+            feelColl.find({ "_id": feel_id }, function (err, docs) {
+              if (err) {
+                console.log(err)
+              } else {
+                res.send(docs[0])
+              }
+            })
+          }
+        })
+      }
     }
   })
+}
 
+router.joinScans = function (req, res) {
+  var autoColl = db.get("autodynes");
+  var auto_id = req.query.auto_id;
+
+  autoColl.update({ "_id": auto_id }, { $inc: { scans: 1 } }, function (err, raw) {
+    if (err) {
+      console.log(err.getMessage())
+    } else {
+      res.send("succ")
+    }
+  })
 }
 
 
